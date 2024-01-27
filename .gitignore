@@ -1,0 +1,6 @@
+sr/
+resulted_images/
+lightning_logs/
+ldm/
+datasets/
+.idea/
