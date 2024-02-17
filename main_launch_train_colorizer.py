@@ -4,13 +4,13 @@ import data_utils.data_utils_colorization
 
 import pytorch_lightning as pl
 
-from modules.lit_iadb_colorizer import LitIADBColorizer
+
+from modules.lit_iadb_colorizer_ldm import LitIADBColorizerLDM
 
 
 def main():
-    model = LitIADBColorizer(
-        n_features_list=(64, 128, 256, 512, 1024),
-        use_attention_list=(False, False, False, False, False)
+    model = LitIADBColorizerLDM(
+
     )
 
     trainer = pl.Trainer(
@@ -20,7 +20,7 @@ def main():
 
     train_dataset = data_utils.data_utils_colorization.get_dataset()
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, 7, shuffle=True, num_workers=8, pin_memory=True
+        train_dataset, 32, shuffle=True, num_workers=8, pin_memory=True
     )
 
     trainer.fit(

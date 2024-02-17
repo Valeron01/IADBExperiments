@@ -22,6 +22,10 @@ def main():
 
     images_paths = glob.glob(
         "/media/valera/SSDM2/ExtractedDatasets/MineSR/*.*"
+    ) + glob.glob(
+        "/media/valera/SSDM2/ExtractedDatasets/MinecraftVideo/SimpleSR/*.*"
+    ) + glob.glob(
+        "/media/valera/SSDM2/ExtractedDatasets/MinecraftVideo/Part1/*.*"
     )
 
     np.random.seed(100)

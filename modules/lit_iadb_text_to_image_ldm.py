@@ -1,21 +1,25 @@
 from typing import Any
 
+import numpy as np
 import pytorch_lightning as pl
+import pytorch_lightning.utilities.model_summary
 import torch
 import diffusers
 from tqdm import trange
 
+from modules.optimizers_builder import build_optimizer
+from modules.inner_model_factory import build_model
 from torch import nn
 
 
-class LitIADBTextToImage(pl.LightningModule):
+class LitIADBTextToImageLDM(pl.LightningModule):
     def __init__(
             self,
             vocab_size: int,
             text_dim,
             lstm_hidden_size: int = 1024,
             cross_attention_dim: int = 512,
-            image_size: int = 64,
+            image_size: int = 32,
             n_channels_list=(128, 256, 512, 1024),
             down_block_types=("DownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "DownBlock2D"),
             up_blocks_type=("UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "UpBlock2D"),
@@ -30,8 +34,8 @@ class LitIADBTextToImage(pl.LightningModule):
 
         self.inner_model = diffusers.models.unet_2d_condition.UNet2DConditionModel(
             image_size,
-            in_channels=3,
-            out_channels=3,
+            in_channels=4,
+            out_channels=4,
             down_block_types=down_block_types,
             up_block_types=up_blocks_type,
             block_out_channels=n_channels_list,
@@ -72,6 +76,7 @@ class LitIADBTextToImage(pl.LightningModule):
 
     def training_step(self, batch, *args: Any, **kwargs: Any):
         real_images, sentences = batch
+        real_images = real_images * 0.18215
         text_features = self.forward_encode_text(sentences)
         null_vector_expanded = torch.tile(self.null_text_token, (sentences.shape[0], sentences.shape[1], 1))
         conditional_pass = torch.rand(real_images.size(0), device=real_images.device) > 0.1
@@ -90,6 +95,11 @@ class LitIADBTextToImage(pl.LightningModule):
 
         return loss
 
+    def sample_t(self, t):
+        # return np.sin(t * np.pi / 2)
+        # return t
+        return -np.cos(t * np.pi / 2) + 1
+
     def predict_step(self, batch):
         x_alpha, sentences = batch
         with torch.no_grad():
@@ -97,18 +107,18 @@ class LitIADBTextToImage(pl.LightningModule):
             null_vector_expanded = torch.tile(self.null_text_token, (sentences.shape[0], sentences.shape[1], 1))
 
             for i in trange(self.n_sample_timesteps):
-                alpha = i / self.n_sample_timesteps
-                alpha_next = (i + 1) / self.n_sample_timesteps
+                alpha = self.sample_t(i / self.n_sample_timesteps)
+                alpha_next = self.sample_t((i + 1) / self.n_sample_timesteps)
 
                 delta_step_conditioned = self.forward_unet(
                     x_alpha,
-                    torch.FloatTensor([alpha]).cuda(),
+                    torch.FloatTensor([alpha]).to(self.device),
                     text_features
                 )
 
                 delta_step_unconditioned = self.forward_unet(
                     x_alpha,
-                    torch.FloatTensor([alpha]).cuda(),
+                    torch.FloatTensor([alpha]).to(self.device),
                     null_vector_expanded
                 )
 
@@ -116,21 +126,6 @@ class LitIADBTextToImage(pl.LightningModule):
 
                 x_alpha_next = x_alpha + (alpha_next - alpha) * delta_step
 
-                x_alpha = x_alpha_next
+                x_alpha = torch.clip(x_alpha_next, -20 * 0.18215, 30 * 0.18215)
 
-        return x_alpha
-
-
-if __name__ == '__main__':
-    model = LitIADBTextToImage(
-        13, 256
-    ).cuda()
-
-    print(model(
-        torch.randn(8, 3, 64, 64).cuda(),
-        torch.rand(8).cuda(),
-        torch.randint(0, 13, (8, 64)).cuda()
-    ).shape)
-
-
-
+        return x_alpha / 0.18215

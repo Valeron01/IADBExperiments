@@ -13,19 +13,20 @@ from modules.lit_iadb_celeb import LitIADBCeleb
 
 
 def main():
+    device = "cuda"
     model: LitIADBCeleb = LitIADBCeleb.load_from_checkpoint(
-        glob.glob("/home/valera/PycharmProjects/IADB/ldm/lightning_logs/version_7/checkpoints/*.*")[0]
-    ).eval().requires_grad_(False)
+        glob.glob("/home/valera/PycharmProjects/IADB/ldm/lightning_logs/version_14/checkpoints/*.*")[0],
+        map_location="cpu"
+    ).eval().requires_grad_(False).to(device)
     autoencoder: AutoencoderKL = AutoencoderKL.from_pretrained(
         "stabilityai/sd-vae-ft-mse",
-    ).eval().requires_grad_(False).float().cuda()
-    model.n_sample_timesteps = 32
-    num_images = 100
+    ).eval().requires_grad_(False).float().to(device)
+    model.n_sample_timesteps = 128
+    num_images = 10
     print(model.global_step)
-    noise = torch.randn(num_images, 4, 32, 32).to(model.device)
+    noise = torch.randn(num_images, 4, 32, 32).to(model.device) * 0.8
 
     resulted_latent = model.predict_step(noise)
-    # resulted_latent = torch.load("/media/valera/SSDM2/LightningFolder/celeba_256x256_latent/025565.pt")[None].cuda()
 
     for i, latent in tenumerate(resulted_latent):
         resulted_image = autoencoder.decode(latent[None])[0][0].permute(1, 2, 0) * 0.5 + 0.5

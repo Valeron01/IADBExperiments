@@ -34,7 +34,7 @@ class LitIADBCeleb(pl.LightningModule):
         self.save_hyperparameters()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.inner_model.parameters(), 2e-4)
+        return torch.optim.AdamW(self.inner_model.parameters(), 1e-4, weight_decay=5e-3)
 
     def forward_unet(self, images, timestep):
         return self.inner_model(
@@ -65,9 +65,9 @@ class LitIADBCeleb(pl.LightningModule):
         for i in trange(self.n_sample_timesteps):
             alpha = i / self.n_sample_timesteps
             alpha_next = (i + 1) / self.n_sample_timesteps
-            delta_step = self.inner_model(
+            delta_step = self.ema(
                 x_alpha,
-                alpha
+                torch.FloatTensor([alpha]).to(self.device)
             ).sample
 
             x_alpha_next = x_alpha + (alpha_next - alpha) * delta_step
@@ -75,18 +75,4 @@ class LitIADBCeleb(pl.LightningModule):
             x_alpha = x_alpha_next
 
         return x_alpha / 0.18215
-
-
-if __name__ == '__main__':
-    model = LitIADBTextToImage(
-        13, 256
-    ).cuda()
-
-    print(model(
-        torch.randn(8, 3, 64, 64).cuda(),
-        torch.rand(8).cuda(),
-        torch.randint(0, 13, (8, 64)).cuda()
-    ).shape)
-
-
 

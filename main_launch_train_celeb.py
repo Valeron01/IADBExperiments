@@ -15,12 +15,13 @@ def main():
     )
 
     model = LitIADBCeleb(
-        n_channels_list=(128, 256, 384, 512)
+        n_channels_list=(224, 448, 448, 672)
     )
 
     trainer.fit(
         model,
         dataloder,
+        ckpt_path="/home/valera/PycharmProjects/IADB/ldm/lightning_logs/version_13/checkpoints/epoch=34-step=16415.ckpt"
     )
 
 
